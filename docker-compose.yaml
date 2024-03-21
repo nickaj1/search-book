@@ -1,0 +1,76 @@
+services:
+  db:
+    container_name: lavagna_db
+    image: mysql:5.7
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "db",
+          "-uroot",
+          "-p${MYSQL_ROOT_PASSWORD}"
+        ]
+      interval: 5s
+      timeout: 20s
+      retries: 20
+    restart: always
+    volumes:
+      - lavagna_db_data:/var/lib/mysql
+    networks:
+      - lavagna-db.net
+    ports:
+     - "3306"
+    environment:
+       MYSQL_DATABASE: ${MYSQL_DATABASE}
+       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+       MYSQL_USER: ${MYSQL_USER}
+       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+  api:
+    container_name: lavagna_api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lavagna-image
+    restart: always
+    environment:
+       DB_DIALECT: ${DB_DIALECT}
+       DB_URL: ${DB_URL}
+       DB_USER: ${DB_USER}
+       DB_PASS: ${DB_PASS}
+       SPRING_PROFILE: ${SPRING_PROFILE}
+    ports:
+      - "8080"
+    networks:
+      - lavagna-db.net
+      - lavagna-proxy.net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    container_name: lavagna_proxy
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    restart: always
+    ports:
+      - 80:80
+      - 8081:8081
+    depends_on:
+       api:
+          condition: service_started
+    networks:
+      - lavagna-proxy.net
+
+volumes:
+  lavagna_db_data:
+
+networks:
+  lavagna-db.net:
+  lavagna-proxy.net:

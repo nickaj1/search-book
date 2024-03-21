@@ -1,0 +1,16 @@
+FROM maven:3.6.3-openjdk-8 as builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN --mount=type=cache,target=/root/.m2 \ 
+     mvn clean stampo:build
+
+
+FROM nginx:1.13-alpine
+
+COPY --from=builder /app/target/lavagna/help /usr/share/nginx/html/docs
+COPY --from=builder /app/src/main/webapp /usr/share/nginx/static
+
+EXPOSE 80
